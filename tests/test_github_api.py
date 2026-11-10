@@ -61,3 +61,13 @@ async def test_search_always_sends_a_type_qualifier():
     assert queries == ["dark mode repo:o/r is:issue", "fix repo:o/r is:pull-request"]
     with pytest.raises(GitHubError, match="kind"):
         await gh.search_issues("x", kind="repo")
+
+
+async def test_renamed_repo_redirect_is_followed():
+    # GitHub answers 301 for a renamed/transferred repo; the body is a dict, not the issue list.
+    def handler(req: httpx.Request):
+        if req.url.path == "/repos/o/r/issues":
+            return httpx.Response(301, headers={"location": "https://api.github.com/repositories/1/issues"})
+        return httpx.Response(200, json=[issue(1)])
+
+    assert [i["number"] for i in await client(handler).list_issues()] == [1]

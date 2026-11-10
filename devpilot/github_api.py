@@ -79,7 +79,12 @@ class GitHubClient:
         if token:
             headers["Authorization"] = f"Bearer {token}"
         self._http = httpx.AsyncClient(
-            base_url="https://api.github.com", headers=headers, timeout=20, transport=transport
+            base_url="https://api.github.com",
+            headers=headers,
+            timeout=20,
+            transport=transport,
+            # Renamed or transferred repos answer 301; httpx does not follow redirects by default.
+            follow_redirects=True,
         )
         self.default_repo = default_repo
 
@@ -91,7 +96,7 @@ class GitHubClient:
 
     async def _request(self, method: str, path: str, **kw) -> Any:
         resp = await self._http.request(method, path, **kw)
-        if resp.is_error:
+        if resp.is_error or resp.is_redirect:
             try:
                 detail = resp.json().get("message", resp.text)
             except ValueError:
